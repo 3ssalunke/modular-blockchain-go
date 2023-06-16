@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/3ssalunke/go-blockchain/crypto"
@@ -15,7 +16,7 @@ func TestSignTransaction(t *testing.T) {
 
 	assert.Nil(t, tx.Sign(privKey))
 	assert.NotNil(t, tx.Signature)
-	assert.NotNil(t, tx.PublicKey)
+	assert.NotNil(t, tx.From)
 }
 
 func TestVerifyTransaction(t *testing.T) {
@@ -28,7 +29,26 @@ func TestVerifyTransaction(t *testing.T) {
 	assert.Nil(t, tx.Verify())
 
 	otherPrivKey := crypto.GeneratePrivateKey()
-	tx.PublicKey = otherPrivKey.PublicKey()
+	tx.From = otherPrivKey.PublicKey()
 
 	assert.NotNil(t, tx.Verify())
+}
+
+func TestTxEncodeDecode(t *testing.T) {
+	tx := randomTxWithSignature(t)
+	buf := &bytes.Buffer{}
+	assert.Nil(t, tx.Encode(NewGobTxEncoder(buf)))
+
+	txDecoded := new(Transaction)
+	assert.Nil(t, txDecoded.Decode(NewGobTxDecoder(buf)))
+	assert.Equal(t, tx, txDecoded)
+}
+
+func randomTxWithSignature(t *testing.T) *Transaction {
+	privKey := crypto.GeneratePrivateKey()
+	tx := &Transaction{
+		Data: []byte("foo"),
+	}
+	assert.Nil(t, tx.Sign(privKey))
+	return tx
 }
