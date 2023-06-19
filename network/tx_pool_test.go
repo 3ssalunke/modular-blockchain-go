@@ -9,30 +9,30 @@ import (
 )
 
 func TestTxPool(t *testing.T) {
-	p := NewTxPool()
-	assert.Equal(t, p.Len(), 0)
+	p := NewTxPool(100)
+	assert.Equal(t, p.pending.Count(), 0)
 }
 
 func TestPoolAdd(t *testing.T) {
-	p := NewTxPool()
+	p := NewTxPool(100)
 	tx := core.NewTransaction([]byte("foo"))
-	assert.Nil(t, p.Add(tx))
-	assert.Equal(t, p.Len(), 1)
+	p.Add(tx)
+	assert.Equal(t, p.pending.Count(), 1)
 
 	_ = core.NewTransaction([]byte("foo"))
-	assert.Equal(t, p.Len(), 1)
+	assert.Equal(t, p.pending.Count(), 1)
 
-	p.Flush()
-	assert.Equal(t, p.Len(), 0)
+	p.ClearPending()
+	assert.Equal(t, p.pending.Count(), 0)
 }
 
 func TestSortTransactions(t *testing.T) {
-	p := NewTxPool()
+	p := NewTxPool(100)
 	txLen := 1000
 	for i := 0; i < txLen; i++ {
 		tx := core.NewTransaction([]byte(strconv.Itoa(i)))
-		assert.Nil(t, p.Add(tx))
+		p.Add(tx)
 	}
 
-	assert.Equal(t, p.Len(), 1000)
+	assert.Equal(t, p.pending.Count(), 1000)
 }

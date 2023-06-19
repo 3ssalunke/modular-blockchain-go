@@ -28,6 +28,13 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		return err
 	}
 
+	for _, tx := range b.Transactions {
+		vm := NewVM(tx.Data)
+		if err := vm.Run(); err != nil {
+			return err
+		}
+	}
+
 	return bc.addBlockChainWithoutValidation(b)
 }
 
