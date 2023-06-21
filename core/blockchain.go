@@ -6,16 +6,18 @@ import (
 )
 
 type Blockchain struct {
-	store     Storage
-	lock      sync.RWMutex
-	headers   []*Header
-	validator Validator
+	store         Storage
+	lock          sync.RWMutex
+	headers       []*Header
+	validator     Validator
+	contractState *State
 }
 
 func NewBlockchain(genesis *Block) (*Blockchain, error) {
 	bc := &Blockchain{
-		headers: []*Header{},
-		store:   NewMemStore(),
+		headers:       []*Header{},
+		store:         NewMemStore(),
+		contractState: NewState(),
 	}
 	bc.validator = NewBlockValidator(bc)
 	err := bc.addBlockChainWithoutValidation(genesis)
@@ -29,7 +31,7 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 	}
 
 	for _, tx := range b.Transactions {
-		vm := NewVM(tx.Data)
+		vm := NewVM(tx.Data, bc.contractState)
 		if err := vm.Run(); err != nil {
 			return err
 		}

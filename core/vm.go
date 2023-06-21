@@ -1,15 +1,26 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/3ssalunke/go-blockchain/util"
+)
 
 type Instruction byte
 
 const (
 	InstrPushInt  Instruction = 0x0a
-	InstrAdd      Instruction = 0x0b
-	InstrPushByte Instruction = 0x0c
-	InstrPack     Instruction = 0x0d
-	InstrSub      Instruction = 0x0e
+	InstrPushByte Instruction = 0x0b
+
+	InstrPack Instruction = 0x10
+
+	InstrStore Instruction = 0x20
+	InstrGet   Instruction = 0x21
+
+	InstrAdd Instruction = 0x30
+	InstrSub Instruction = 0x32
+	InstrMul Instruction = 0x33
+	InstrDiv Instruction = 0x34
 )
 
 type Stack struct {
@@ -25,7 +36,8 @@ func NewStack(size int) *Stack {
 }
 
 func (s *Stack) Push(v any) {
-	s.data[s.sp] = v
+	// s.data[s.sp] = v
+	s.data = append([]any{v}, s.data...)
 	s.sp++
 }
 
@@ -37,16 +49,18 @@ func (s *Stack) Pop() any {
 }
 
 type VM struct {
-	data  []byte
-	ip    int
-	stack *Stack
+	data          []byte
+	ip            int
+	stack         *Stack
+	contractState *State
 }
 
-func NewVM(data []byte) *VM {
+func NewVM(data []byte, contractState *State) *VM {
 	return &VM{
-		data:  data,
-		ip:    0,
-		stack: NewStack(128),
+		data:          data,
+		ip:            0,
+		stack:         NewStack(128),
+		contractState: contractState,
 	}
 }
 
@@ -72,6 +86,19 @@ func (vm *VM) Exec(instr Instruction) error {
 	fmt.Println(instr)
 
 	switch instr {
+	case InstrStore:
+		var (
+			key             = vm.stack.Pop().([]byte)
+			value           = vm.stack.Pop()
+			serializedValue []byte
+		)
+		switch v := value.(type) {
+		case int:
+			serializedValue = util.SerializeInt64(int64(v))
+		default:
+			panic("TODO: unknown type")
+		}
+		vm.contractState.Put(key, serializedValue)
 	case InstrPushInt:
 		vm.stack.Push(int(vm.data[vm.ip-1]))
 	case InstrPushByte:
@@ -89,7 +116,17 @@ func (vm *VM) Exec(instr Instruction) error {
 		a := vm.stack.Pop().(int) + vm.stack.Pop().(int)
 		vm.stack.Push(a)
 	case InstrSub:
-		a := vm.stack.Pop().(int) - vm.stack.Pop().(int)
+		c := vm.stack.Pop().(int)
+		d := vm.stack.Pop().(int)
+		a := c - d
+		vm.stack.Push(a)
+	case InstrMul:
+		a := vm.stack.Pop().(int) * vm.stack.Pop().(int)
+		vm.stack.Push(a)
+	case InstrDiv:
+		c := vm.stack.Pop().(int)
+		d := vm.stack.Pop().(int)
+		a := c / d
 		vm.stack.Push(a)
 	}
 
