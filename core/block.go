@@ -135,5 +135,13 @@ func GenesisBlock() (*Block, error) {
 		Height:    0,
 	}
 
-	return NewBlock(header, nil)
+	b, err := NewBlock(header, nil)
+	if err != nil {
+		return nil, err
+	}
+	privKey := crypto.GeneratePrivateKey()
+	if err = b.Sign(privKey); err != nil {
+		return nil, err
+	}
+	return b, nil
 }
