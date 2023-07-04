@@ -13,7 +13,7 @@ import (
 
 func main() {
 	pk := crypto.GeneratePrivateKey()
-	localNode := makeServer("localNode", &pk)
+	localNode := makeServer("localNode", &pk, ":3000", ":8080")
 
 	go localNode.Start()
 
@@ -46,12 +46,13 @@ func tcpTester() {
 	}
 }
 
-func makeServer(id string, pk *crypto.PrivateKey) *network.Server {
+func makeServer(id string, pk *crypto.PrivateKey, addr string, apiListenAddr string) *network.Server {
 	opts := &network.ServerOpts{
-		ListenAddr: ":3000",
-		ID:         id,
-		PrivateKey: pk,
-		BlockTime:  5 * time.Second,
+		APIListenAddr: apiListenAddr,
+		ListenAddr:    addr,
+		ID:            id,
+		PrivateKey:    pk,
+		BlockTime:     5 * time.Second,
 	}
 	s, err := network.NewServer(opts)
 	if err != nil {

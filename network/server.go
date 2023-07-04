@@ -7,13 +7,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/3ssalunke/go-blockchain/api"
 	"github.com/3ssalunke/go-blockchain/core"
 	"github.com/3ssalunke/go-blockchain/crypto"
 )
 
 type ServerOpts struct {
-	ListenAddr string
-	ID         string
+	APIListenAddr string
+	ListenAddr    string
+	ID            string
 	RPCDecodeFunc
 	RPCProcessor
 	BlockTime  time.Duration
@@ -33,6 +35,7 @@ type Server struct {
 
 	rpcCh    chan RPC
 	quitChan chan struct{}
+	txCh     chan *core.Transaction
 }
 
 func NewServer(opts *ServerOpts) (*Server, error) {
@@ -50,6 +53,17 @@ func NewServer(opts *ServerOpts) (*Server, error) {
 		return nil, err
 	}
 
+	txChan := make(chan *core.Transaction)
+
+	if opts.APIListenAddr != "" {
+		apiServerConfig := api.ServerConfig{
+			ListenAddr: opts.APIListenAddr,
+		}
+
+		apiServer := api.NewServer(apiServerConfig, chain, txChan)
+		go apiServer.Start()
+	}
+
 	peerChan := make(chan *TCPPeer)
 
 	tr := NewTCPTransport(opts.ListenAddr, peerChan)
@@ -64,6 +78,7 @@ func NewServer(opts *ServerOpts) (*Server, error) {
 		peerMap:      make(map[NetAddr]*TCPPeer),
 		rpcCh:        make(chan RPC),
 		quitChan:     make(chan struct{}, 1),
+		txCh:         txChan,
 	}
 
 	if opts.RPCProcessor == nil {
@@ -91,6 +106,12 @@ free:
 			s.peerMap[peer.conn.RemoteAddr()] = peer
 
 			go peer.readLoop(s.rpcCh)
+
+		case tx := <-s.txCh:
+			if err := s.processTransaction(tx); err != nil {
+				fmt.Println("process TX error", err)
+			}
+
 		case rpc := <-s.rpcCh:
 			msg, err := s.RPCDecodeFunc(rpc)
 			if err != nil {
@@ -214,7 +235,7 @@ func (s *Server) processGetBlockMessage(from NetAddr, data *GetBlockMessage) err
 
 	if data.To == 0 {
 		for i := int(data.From); i < int(s.chain.Height()); i++ {
-			block, err := s.chain.GetBlock(uint32(i))
+			block, err := s.chain.GetBlockByHeight(uint32(i))
 			if err != nil {
 				return err
 			}

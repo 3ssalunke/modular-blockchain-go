@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/3ssalunke/go-blockchain/crypto"
@@ -13,6 +14,7 @@ type Transaction struct {
 
 	From      crypto.PublicKey
 	Signature *crypto.Signature
+	Nonce     int64
 
 	hash      types.Hash
 	firstSeen int64
@@ -22,6 +24,7 @@ func NewTransaction(data []byte) *Transaction {
 	return &Transaction{
 		Data:      data,
 		firstSeen: time.Now().UnixNano(),
+		Nonce:     rand.Int63n(1000000000000000000),
 	}
 }
 

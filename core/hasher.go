@@ -2,6 +2,7 @@ package core
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 
 	"github.com/3ssalunke/go-blockchain/types"
 )
@@ -20,6 +21,11 @@ func (BlockHasher) Hash(hd *Header) types.Hash {
 type TxHasher struct{}
 
 func (TxHasher) Hash(tx *Transaction) types.Hash {
-	h := sha256.Sum256(tx.Data)
+	buf := make([]byte, 8)
+	binary.LittleEndian.PutUint64(buf, uint64(tx.Nonce))
+
+	data := append(buf, tx.Data...)
+
+	h := sha256.Sum256(data)
 	return types.Hash(h)
 }

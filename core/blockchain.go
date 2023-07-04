@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 	"sync"
+
+	"github.com/3ssalunke/go-blockchain/types"
 )
 
 type Blockchain struct {
@@ -10,6 +12,8 @@ type Blockchain struct {
 	lock          sync.RWMutex
 	headers       []*Header
 	blocks        []*Block
+	blockstore    map[types.Hash]*Block
+	txstore       map[types.Hash]*Transaction
 	validator     Validator
 	contractState *State
 }
@@ -19,6 +23,8 @@ func NewBlockchain(genesis *Block) (*Blockchain, error) {
 		headers:       []*Header{},
 		store:         NewMemStore(),
 		contractState: NewState(),
+		blockstore:    make(map[types.Hash]*Block),
+		txstore:       make(map[types.Hash]*Transaction),
 	}
 	bc.validator = NewBlockValidator(bc)
 	err := bc.addBlockChainWithoutValidation(genesis)
@@ -41,7 +47,19 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 	return bc.addBlockChainWithoutValidation(b)
 }
 
-func (bc *Blockchain) GetBlock(height uint32) (*Block, error) {
+func (bc *Blockchain) GetBlockByHash(hash types.Hash) (*Block, error) {
+	bc.lock.RLock()
+	defer bc.lock.RUnlock()
+
+	block, ok := bc.blockstore[hash]
+	if !ok {
+		return nil, fmt.Errorf("block not found for hash %s", hash)
+	}
+
+	return block, nil
+}
+
+func (bc *Blockchain) GetBlockByHeight(height uint32) (*Block, error) {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 
@@ -63,6 +81,18 @@ func (bc *Blockchain) GetHeader(height uint32) (*Header, error) {
 	return bc.headers[height], nil
 }
 
+func (bc *Blockchain) GetTxByHash(hash types.Hash) (*Transaction, error) {
+	bc.lock.RLock()
+	defer bc.lock.RUnlock()
+
+	tx, ok := bc.txstore[hash]
+	if !ok {
+		return nil, fmt.Errorf("transaction not found for given hash")
+	}
+
+	return tx, nil
+}
+
 func (bc *Blockchain) HasBlock(height uint32) bool {
 	return height <= bc.Height()
 }
@@ -79,5 +109,11 @@ func (bc *Blockchain) addBlockChainWithoutValidation(b *Block) error {
 
 	bc.headers = append(bc.headers, b.Header)
 	bc.blocks = append(bc.blocks, b)
+	bc.blockstore[b.Hash(BlockHasher{})] = b
+
+	for _, tx := range b.Transactions {
+		bc.txstore[tx.Hash(TxHasher{})] = tx
+	}
+
 	return bc.store.Put(b)
 }
